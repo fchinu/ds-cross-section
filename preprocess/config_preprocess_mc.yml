@@ -1,0 +1,92 @@
+outdir: '/home/fchinu/Run3/ds_cross_section/preprocess' # outputs go to <outdir>/mc/pt_X_Y
+
+# pt bins (same as data)
+ptbins: [
+    0.,
+    0.5,
+    1.0,
+    1.5,
+    2.0,
+    2.5,
+    3.0,
+    3.5,
+    4.0,
+    4.5,
+    5.0,
+    5.5,
+    6.0,
+    6.5,
+    7.0,
+    8.0,
+    9.0,
+    10.0,
+    12.0,
+    16.0,
+    24.0
+]
+
+preprocess:
+    bkg_cuts: [
+        0.1, # 0.,
+        0.1, # 0.5,
+        0.1, # 1.0,
+        0.1, # 1.5,
+        0.1, # 2.0,
+        0.1, # 2.5,
+        0.1, # 3.0,
+        0.1, # 3.5,
+        0.2, # 4.0,
+        0.2, # 4.5,
+        0.2, # 5.0,
+        0.2, # 5.5,
+        0.2, # 6.0,
+        0.2, # 6.5,
+        0.2, # 7.0,
+        0.2, # 8.0,
+        0.2, # 9.0,
+        0.2, # 10.0,
+        0.3, # 12.0,
+        0.3, # 16.0,
+    ]
+    axes:
+        axis_pt_reco: 1
+        axis_bkg_reco: 3
+        axis_ptb_reco: 7 # non-prompt sparses only
+        axis_pt_gen: 0
+        axis_ptb_gen: 4 # non-prompt sparses only
+    input:
+        files: []
+        is_mc: True
+        event_histogram: eventselection-run3/luminosity/hCounterTVXafterBCcuts
+        collision_histogram: hf-candidate-creator-3prong/hCollisionsCentOcc
+        sparses:
+        -   type: reco
+            path: hf-task-ds/Data/hSparseMass
+        -   type: reco
+            path: hf-task-ds/MC/Ds/Prompt/hSparseMass
+        -   type: reco
+            path: hf-task-ds/MC/Ds/NonPrompt/hSparseMass
+        -   type: reco
+            path: hf-task-ds/MC/Dplus/Prompt/hSparseMass
+        -   type: reco
+            path: hf-task-ds/MC/Dplus/NonPrompt/hSparseMass
+        -   type: gen
+            path: hf-task-ds/MC/Ds/Prompt/hSparseGen
+        -   type: gen
+            path: hf-task-ds/MC/Ds/NonPrompt/hSparseGen
+        -   type: gen
+            path: hf-task-ds/MC/Dplus/Prompt/hSparseGen
+        -   type: gen
+            path: hf-task-ds/MC/Dplus/NonPrompt/hSparseGen
+
+    weights:
+        pt: # prompt weighted vs D pT, non-prompt vs pT(B); adds <sparse>_reweighted next to each MC sparse
+            apply: False
+            file_name: ''
+            hist_names:
+                Ds:
+                    Prompt: ''
+                    NonPrompt: ''
+                Dplus:
+                    Prompt: ''
+                    NonPrompt: ''
