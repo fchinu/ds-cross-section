@@ -1,0 +1,12 @@
+repos:
+  - repo: local
+    hooks:
+      # Same pylint version and flags as .github/workflows/pylint.yml, run in an isolated env so
+      # the hook works whether or not ml312 is active (e.g. committing from VSCode)
+      - id: pylint
+        name: pylint
+        entry: pylint
+        language: python
+        additional_dependencies: [pylint==4.1.2]
+        args: [--disable=import-error]
+        types: [python]

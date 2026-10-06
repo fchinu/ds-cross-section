@@ -1,0 +1,23 @@
+name: Pylint
+
+on: [push, pull_request]
+
+jobs:
+  pylint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pylint==4.1.2
+
+      # Analysis dependencies (ROOT, hipe4ml, flarefly, ...) are not installed on the runner,
+      # so import-error is disabled here; everything else follows .pylintrc
+      - name: Run pylint
+        run: git ls-files -z '*.py' | xargs -0 -r pylint --disable=import-error

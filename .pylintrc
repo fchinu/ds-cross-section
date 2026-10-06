@@ -1,0 +1,23 @@
+[FORMAT]
+indent-string='    '
+max-line-length=120
+
+[BASIC]
+function-naming-style=snake_case
+argument-naming-style=snake_case
+variable-naming-style=snake_case
+method-naming-style=snake_case
+attr-naming-style=snake_case
+class-naming-style=PascalCase
+
+[MESSAGES CONTROL]
+disable=useless-object-inheritance
+
+[TYPECHECK]
+# PyROOT members are generated at runtime by cppyy, so static analysis can't see them
+ignored-modules=ROOT
+
+[DESIGN]
+max-args=10
+max-positional-arguments=8
+max-locals=100
