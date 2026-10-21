@@ -1,0 +1,53 @@
+inputs:
+  data: project/data/projections_data.root
+  mc: [
+        project/mc/projections_ds_prompt.root,
+        project/mc/projections_dplus_prompt.root
+      ]
+  mc_corr_bkg: project/mc/projections_dplus_bkg.root
+cutset_file_name: 'configs/cutset.yml'
+
+zfit_n_cpus:
+  intra: 10
+  inter: 10
+
+fit_configs:
+  shift_bkg_templ: -0.02        # numerical value or null
+  pt_int:
+    activate: false
+    extended: false
+    signal_funcs: ["gaussian", "gaussian"]
+    bkg_funcs: ["chebpol2"]
+    mass_limits: [1.75, 2.1]
+    rebin: 4
+    use_bkg_templ: false
+    fix_correlated_bkg_to_signal: true
+  # below one per pT bin
+  extended: false  # bool or list of bools (one per pT bin)
+  signal_funcs: ["doublecbsymm", "doublecbsymm"]  # list or list of lists (one per pT bin)
+  fix_params_to_mc: ["alpha", "n"]  # list or list of lists (one per pT bin)
+  fix_ratio_dplus_ds_sigma: true  # bool/float or list of bools/floats (one per pT bin). If bool, fix to MC value
+  bkg_funcs: ["chebpol2"]  # list or list of lists (one per pT bin)
+  mass_limits: [1.75, 2.1]  # list or list of lists (one per pT bin)
+  rebin: 4  # int or list of ints (one per pT bin)
+  use_bkg_templ: true
+  correlated_bkg:
+    br_pdg: 0.0938
+    br_sim: 0.40189
+
+  signal_br:
+    pdg: 0.00269
+    sim: 0.25
+
+  fix_correlated_bkg_to_signal: true  # bool or list of bools (one per pT bin)
+
+plot_style:
+  pt_int:
+    n_bins: 76
+  n_bins: [76, 76, 76, 76, 76, 76, 76]
+
+outputs:
+  directory: "fit/outputs/test"
+  suffix: "_test"
+  produce_sweights: true
+
