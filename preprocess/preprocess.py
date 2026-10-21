@@ -31,6 +31,13 @@ def get_object(in_file, path):
     return obj
 
 
+def get_or_make_dir(root_file, path):
+    """Directory at path in a ROOT file, created if missing"""
+    if not root_file.GetDirectory(path):
+        root_file.mkdir(path)  # for nested paths ROOT 6.32 returns the top directory: look it up below
+    return root_file.GetDirectory(path)
+
+
 def particle_origin(path):
     """(particle, origin) of an MC sparse at hf-task-ds/MC/<particle>/<origin>/<name>, None otherwise"""
     parts = path.split("/")
@@ -78,7 +85,7 @@ def process_file(i_file, file_name, cfg, out_dir):
                 sparse.GetAxis(axes["axis_bkg_reco"]).SetRangeUser(0, bkg_max)
             sparse_pt = sparse.Projection(len(dims), dims)
 
-            out_dir_root = out_file.mkdir(sparse_dir, "", True)
+            out_dir_root = get_or_make_dir(out_file, sparse_dir)
             out_dir_root.WriteTObject(sparse_pt, sparse_name)
             if reweighter and mc_species:
                 sparse_rw = reweighter.reweight(sparse_pt, *mc_species, is_gen)
