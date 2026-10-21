@@ -1,0 +1,22 @@
+indir: 'preprocess/mc'    # preprocess output, contains pt_X_Y/AnalysisResults_pt_X_Y.root
+outdir: 'project/mc'      # output: <outdir>/projections.root
+sparses:
+    - label: data
+      name: hf-task-ds/Data/hSparseMass
+    - label: ds_prompt
+      name: hf-task-ds/MC/Ds/Prompt/hSparseMass
+    - label: dplus_prompt
+      name: hf-task-ds/MC/Dplus/Prompt/hSparseMass
+    - label: ds_nonprompt
+      name: hf-task-ds/MC/Ds/NonPrompt/hSparseMass
+    - label: dplus_nonprompt
+      name: hf-task-ds/MC/Dplus/NonPrompt/hSparseMass
+    - label: dplus_bkg
+      name: hf-task-ds/MC/Dplus/Bkg/hSparseMass
+
+    
+event_histogram: hf-task-ds/Data/hCounterTVXafterBCcuts
+collision_histogram: hf-task-ds/Data/hCollisionsCentOcc
+axis_mass: 0
+cutset: configs/cutset.yml
+
