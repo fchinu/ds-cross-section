@@ -9,7 +9,7 @@ import yaml
 import ROOT
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from preprocess.preprocess import pt_bin_dir, get_object  # pylint: disable=wrong-import-position
+from preprocess.preprocess import pt_bin_dir, get_object  # pylint: disable=wrong-import-position, no-name-in-module
 from utils.utils import logger  # pylint: disable=wrong-import-position
 
 
