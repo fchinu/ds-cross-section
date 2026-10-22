@@ -16,6 +16,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install root==0.1a12 numpy==1.26.4 PyYAML==6.0.2 pytest==8.3.3
+          python -m pip install pandas==2.2.3 uproot==5.6.0 hist==2.9.0 matplotlib==3.10.1
+          # fit/fit.py needs a flarefly newer than the latest release (fix argument of set_signal_initpar, ...)
+          python -m pip install "flarefly @ git+https://github.com/fchinu/flarefly.git@96f9c4022333388dc19adc052b82d7de9bbf9de8"
 
       - name: Put hadd on PATH
         run: |

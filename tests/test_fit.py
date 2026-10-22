@@ -8,12 +8,9 @@ import pytest
 import ROOT
 import uproot
 import yaml
+import zfit
 
 from conftest import REPO_DIR
-
-# the fit needs flarefly and its dependencies (zfit, ...), not installed in every environment
-pytest.importorskip("flarefly")
-import zfit  # pylint: disable=wrong-import-position,wrong-import-order
 
 PTBINS = [2., 4., 6.]
 MASS_RANGE = (1.65, 2.25)  # mass axis of the fake projections, 1 MeV/c^2 bins
