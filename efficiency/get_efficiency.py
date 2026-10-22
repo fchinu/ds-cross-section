@@ -1,6 +1,7 @@
 '''
 Script to evaluate the efficiency from the preprocessed data.
 '''
+# pylint: disable=duplicate-code
 import argparse
 import sys
 from pathlib import Path
@@ -111,7 +112,7 @@ def main(config):
     logger("Finished efficiency evaluation")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Evaluate efficiencies for ML selection.')
+    parser = argparse.ArgumentParser(description='Evaluate efficiencies.')
     parser.add_argument('config_file', type=str, help='Path to the configuration file.')
     args = parser.parse_args()
 

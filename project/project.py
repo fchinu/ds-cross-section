@@ -1,6 +1,7 @@
 """
 Project the preprocessed sparses of each pT bin onto the mass axis, after applying a cutset.
 """
+# pylint: disable=duplicate-code
 import argparse
 import sys
 from pathlib import Path
