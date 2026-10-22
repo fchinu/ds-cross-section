@@ -1,0 +1,27 @@
+name: Pytest
+
+on: [push, pull_request]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install root==0.1a12 numpy==1.26.4 PyYAML==6.0.2 pytest==8.3.3
+
+      - name: Put hadd on PATH
+        run: |
+          python -c "import ROOT; print(ROOT.TROOT.GetBinDir())" >> "$GITHUB_PATH"
+
+      - name: Run pytest
+        run: |
+          command -v hadd
+          python -m pytest tests -rs
