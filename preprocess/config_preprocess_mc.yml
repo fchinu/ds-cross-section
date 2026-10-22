@@ -57,8 +57,15 @@ preprocess:
     input:
         files: [inputs/mc/Train772253/AnalysisResults_LHC24h1d_0.root]
         is_mc: True
-        event_histogram: eventselection-run3/luminosity/hCounterTVXafterBCcuts
-        collision_histogram: hf-candidate-creator-3prong/hCollisionsCentOcc
+        lumi:
+            histogram: eventselection-run3/luminosity/hLumiTVXafterBCcutsRCT
+            rct_flag: CBT_hadronPID # row of the luminosity histogram
+            mc_visible_cross_section: 59.5 # used to compute the luminosity histogram
+            vdm_visible_cross_section: 54.0
+            collision_selection: # bins of the collision histogram: luminosity scaled by numerator / denominator
+                numerator: 'PV #it{z}'
+                denominator: 'PV #it{#chi}^{2}'
+        collision_histogram: hf-candidate-creator-3prong/hCollisions
         sparses:
         -   type: reco
             path: hf-task-ds/Data/hSparseMass
@@ -80,8 +87,6 @@ preprocess:
             path: hf-task-ds/MC/Dplus/Prompt/hSparseGen
         -   type: gen
             path: hf-task-ds/MC/Dplus/NonPrompt/hSparseGen
-        -   type: gen
-            path: hf-task-ds/MC/Dplus/Bkg/hSparseGen
 
     weights:
         pt: # prompt weighted vs D pT, non-prompt vs pT(B); adds <sparse>_reweighted next to each MC sparse

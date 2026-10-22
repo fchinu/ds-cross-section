@@ -13,9 +13,8 @@ from conftest import REPO_DIR
 
 PTBINS = [2., 4., 6.]
 SPARSE = "hf-task-ds/Data/hSparseMass"
-EVENT_HISTO = "hf-task-ds/Data/hCounterTVXafterBCcuts"
-COLLISION_HISTO = "hf-task-ds/Data/hCollisionsCentOcc"
-N_EVENTS = 500
+LUMINOSITY = 1234.5
+COLLISIONS = 800.
 AXIS_PROMPT, AXIS_BKG = 4, 3  # score axes of the data sparse
 # cuts as in configs/cutset.yml: single values or one value per pT bin
 CUTS = [
@@ -32,15 +31,15 @@ def write_preprocessed(indir, seed=0):
         bin_dir = indir / f"pt_{int(pt_min * 10)}_{int(pt_max * 10)}"
         bin_dir.mkdir(parents=True)
         points[(pt_min, pt_max)] = random_points(AXES["data"], 3000, rng)
-        h_ev = ROOT.TH1D("hCounterTVXafterBCcuts", "", 1, 0., 1.)
-        h_coll = ROOT.TH2D("hCollisionsCentOcc", "", 2, 0., 100., 2, 0., 1.)
-        for histo in (h_ev, h_coll):
+        h_lumi = ROOT.TH1D("hLuminosity", "", 1, 0., 1.)
+        h_coll = ROOT.TH1D("hCollisions", "", 1, 0., 1.)
+        for histo in (h_lumi, h_coll):
             histo.SetDirectory(0)
-        h_ev.SetBinContent(1, N_EVENTS)
-        h_coll.SetBinContent(1, 1, N_EVENTS)
+        h_lumi.SetBinContent(1, LUMINOSITY)
+        h_coll.SetBinContent(1, COLLISIONS)
         sparse = make_sparse("hSparseMass", AXES["data"], points[(pt_min, pt_max)])
         with ROOT.TFile.Open(str(bin_dir / f"AnalysisResults_{bin_dir.name}.root"), "recreate") as out_file:
-            write_objects(out_file, {EVENT_HISTO: h_ev, COLLISION_HISTO: h_coll, SPARSE: sparse})
+            write_objects(out_file, {"hLuminosity": h_lumi, "hCollisions": h_coll, SPARSE: sparse})
     return points
 
 
@@ -52,8 +51,8 @@ def write_configs(tmp_path, cuts=None):
         "indir": str(tmp_path / "preprocessed"),
         "outdir": str(tmp_path / "projected"),
         "sparses": [{"label": "data", "name": SPARSE}],
-        "event_histogram": EVENT_HISTO,
-        "collision_histogram": COLLISION_HISTO,
+        "luminosity_histogram": "hLuminosity",
+        "collision_histogram": "hCollisions",
         "axis_mass": 0,
         "cutset": str(cutset),
     }
@@ -93,8 +92,11 @@ def test_project(tmp_path):
             contents = np.array([h_mass.GetBinContent(i) for i in range(1, h_mass.GetNbinsX() + 1)])
             assert np.array_equal(contents, expected)
             assert h_mass.GetEntries() == expected.sum()
-            assert out_file.Get(f"hEvents_{suffix}").GetBinContent(1) == N_EVENTS
-            assert out_file.Get(f"hCollisions_{suffix}").GetBinContent(1, 1) == N_EVENTS
+        # one luminosity and one collision histogram per file, not per pT bin
+        keys = [key.GetName() for key in out_file.GetListOfKeys()]
+        assert [key for key in keys if "Lumi" in key or "Coll" in key] == ["hLuminosity", "hCollisions"]
+        assert out_file.Get("hLuminosity").GetBinContent(1) == LUMINOSITY
+        assert out_file.Get("hCollisions").GetBinContent(1) == COLLISIONS
 
 
 def test_project_cuts_depend_on_pt_bin(tmp_path):

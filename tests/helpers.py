@@ -18,8 +18,13 @@ AXES = {
 # axis indices, as in the preprocess configs
 AXES_CFG = {"axis_pt_reco": 1, "axis_bkg_reco": 3, "axis_ptb_reco": 7, "axis_pt_gen": 0, "axis_ptb_gen": 4}
 
-EVENT_HISTOGRAM = "eventselection-run3/luminosity/hCounterTVXafterBCcuts"
-COLLISION_HISTOGRAM = "hf-candidate-creator-3prong/hCollisionsCentOcc"
+# luminosity and collision selection histograms: the bin of run j and RCT flag k of the luminosity histogram
+# has content 100 * (j + 1) * (k + 1), the collision selection histogram has labelled bins
+LUMI_HISTOGRAM = "eventselection-run3/luminosity/hLumiTVXafterBCcutsRCT"
+COLLISIONS_HISTOGRAM = "hf-candidate-creator-3prong/hCollisions"
+RCT_FLAGS = ["CBT", "CBT_hadronPID", "CBT_calo"]
+N_RUNS = 3
+COLLISION_COUNTS = {"All": 1000., "PV #it{#chi}^{2}": 900., "PV #it{z}": 800.}
 
 # pT-weight histograms as (nbins, min, max, offset, slope): bin i has content offset + slope * i
 PT_WEIGHTS = (12, 0., 24., 1.0, 0.1)  # 2 GeV/c bins, coarser than the 1 GeV/c sparse pT axis
@@ -90,13 +95,33 @@ def write_weights(file_name, specs):
         write_objects(out_file, histos)
 
 
-def write_analysis_results(file_name, sparses, n_events):
-    """Write a mock AnalysisResults.root with the given {path: sparse} and the event histograms"""
-    h_ev = ROOT.TH1D("luminosity/hCounterTVXafterBCcuts", "", 1, 0., 1.)  # O2 keeps the sub-folder in the name
-    h_coll = ROOT.TH2D("hCollisionsCentOcc", "", 2, 0., 100., 2, 0., 1.)
-    for histo in (h_ev, h_coll):
-        histo.SetDirectory(0)
-    h_ev.SetBinContent(1, n_events)
-    h_coll.SetBinContent(1, 1, n_events)
+def make_lumi_histogram():
+    """Mock luminosity histogram with a bin per run (x) and a labelled row per RCT flag (y)"""
+    h_lumi = ROOT.TH2D("luminosity/hLumiTVXafterBCcutsRCT", "", N_RUNS, 0., N_RUNS, len(RCT_FLAGS), 0., len(RCT_FLAGS))
+    h_lumi.SetDirectory(0)
+    for i_flag, flag in enumerate(RCT_FLAGS):
+        h_lumi.GetYaxis().SetBinLabel(i_flag + 1, flag)
+        for i_run in range(N_RUNS):
+            h_lumi.SetBinContent(i_run + 1, i_flag + 1, 100. * (i_run + 1) * (i_flag + 1))
+    return h_lumi
+
+
+def make_collisions_histogram(reverse_label_order=False):
+    """
+    Mock collision selection histogram with labelled bins. The order in which the labels are created, which is the
+    order of the label list of the axis, can differ from the bin order, as in the O2 histograms.
+    """
+    h_coll = ROOT.TH1D("hCollisions", "", len(COLLISION_COUNTS), 0., len(COLLISION_COUNTS))
+    h_coll.SetDirectory(0)
+    bins = list(enumerate(COLLISION_COUNTS.items(), start=1))
+    for i_bin, (label, count) in (reversed(bins) if reverse_label_order else bins):
+        h_coll.GetXaxis().SetBinLabel(i_bin, label)
+        h_coll.SetBinContent(i_bin, count)
+    return h_coll
+
+
+def write_analysis_results(file_name, sparses):
+    """Write a mock AnalysisResults.root with the given {path: sparse} and the luminosity and collision histograms"""
     with ROOT.TFile.Open(str(file_name), "recreate") as out_file:
-        write_objects(out_file, {EVENT_HISTOGRAM: h_ev, COLLISION_HISTOGRAM: h_coll, **sparses})
+        write_objects(out_file, {LUMI_HISTOGRAM: make_lumi_histogram(),
+                                 COLLISIONS_HISTOGRAM: make_collisions_histogram(), **sparses})

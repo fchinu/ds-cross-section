@@ -11,6 +11,7 @@ import yaml
 import zfit
 
 from conftest import REPO_DIR
+from helpers import COLLISION_COUNTS, make_collisions_histogram
 
 PTBINS = [2., 4., 6.]
 MASS_RANGE = (1.65, 2.25)  # mass axis of the fake projections, 1 MeV/c^2 bins
@@ -20,6 +21,7 @@ MU_DS, MU_DPLUS = 1.9683, 1.8696
 SIGMA_DS, SIGMA_DPLUS = 0.011, 0.009
 N_DS, N_DPLUS, N_BKG = 4000, 2500, 30000  # signal and background candidates in data
 N_MC = 20000
+LUMINOSITY = 4.0e6  # luminosity histogram of the data projections, in 1/mub
 CB_PARS = {"alpha": 1.3, "n": 3.}  # symmetric double Crystal Ball tails of the signals
 
 
@@ -49,16 +51,24 @@ def combinatorial(rng, n_cands):
     return values[values < FIT_RANGE[1]][:n_cands]
 
 
-def write_projection(file_name, spectra):
-    """Write {pT bin: mass values} as hMass_<pt_min*10>_<pt_max*10> histograms, as done by project/project.py"""
+def write_projection(file_name, spectra, with_event_histos=False):
+    """
+    Write {pT bin: mass values} as hMass_<pt_min*10>_<pt_max*10> histograms, as done by project/project.py, with
+    one luminosity (hLuminosity) and one collision (hCollisions) histogram if with_event_histos
+    """
     histos = {}
     for (pt_min, pt_max), values in spectra.items():
-        name = f"hMass_{pt_min * 10:.0f}_{pt_max * 10:.0f}"
-        histo = ROOT.TH1D(name, "", N_BINS_MASS, *MASS_RANGE)
+        histo = ROOT.TH1D(f"hMass_{pt_min * 10:.0f}_{pt_max * 10:.0f}", "", N_BINS_MASS, *MASS_RANGE)
         histo.SetDirectory(0)
         for value in values:
             histo.Fill(value)
-        histos[name] = histo
+        histos[histo.GetName()] = histo
+    if with_event_histos:
+        h_lumi = ROOT.TH1D("hLuminosity", "", 1, 0., 1.)
+        h_lumi.SetBinContent(1, LUMINOSITY)
+        for histo in (h_lumi, make_collisions_histogram()):
+            histo.SetDirectory(0)
+            histos[histo.GetName()] = histo
     with ROOT.TFile.Open(str(file_name), "recreate") as out_file:
         for name, histo in histos.items():
             out_file.WriteTObject(histo, name)
@@ -80,7 +90,7 @@ def make_inputs(tmp_path, shape, corr_bkg_fraction=0.):
     files = {name: tmp_path / f"projections_{name}.root"
              for name in ("data", "ds_prompt", "dplus_prompt", "dplus_bkg")}
     for name, spectra in zip(files, (data, mc_ds, mc_dplus, mc_bkg)):
-        write_projection(files[name], spectra)
+        write_projection(files[name], spectra, with_event_histos=name == "data")
     return files
 
 
@@ -166,7 +176,10 @@ def test_fit_gaussian_signals(tmp_path):
     cfg_file, out_dir = make_config(tmp_path, make_inputs(tmp_path, "gaussian"))
     fit_script.fit(str(cfg_file))
 
-    check_pulls(out_dir, {"h_rawyields": N_DS, "h_means": MU_DS, "h_sigmas": SIGMA_DS})
+    check_pulls(out_dir, {"h_rawyields_ds": N_DS, "h_means_ds": MU_DS, "h_sigmas_ds": SIGMA_DS,
+                          "h_rawyields_dplus": N_DPLUS, "h_means_dplus": MU_DPLUS})
+    for name in ("h_significance_ds", "h_significance_dplus", "h_soverb_ds", "h_soverb_dplus", "h_sigmas_dplus"):
+        assert np.all(read_hist(out_dir, name)[0] > 0), name
     # the MC fits give the peak positions and widths used as starting values
     expected_mc = {"h_means_mc_ds": MU_DS, "h_means_mc_dplus": MU_DPLUS,
                    "h_sigmas_mc_ds": SIGMA_DS, "h_sigmas_mc_dplus": SIGMA_DPLUS}
@@ -177,13 +190,21 @@ def test_fit_gaussian_signals(tmp_path):
     for name in ("fit_mass_pt20_40.pdf", "fit_mass_pt40_60.pdf", "fit_mass_pt20_40_mc.pdf"):
         assert (out_dir / name).is_file()
 
+    # the luminosity and collision histograms of the data are copied, with the labels of the collision bins
+    with ROOT.TFile.Open(str(out_dir / "fit_mass_test.root")) as out_file:
+        assert out_file.Get("hLuminosity").GetBinContent(1) == LUMINOSITY
+        h_coll = out_file.Get("hCollisions")
+        for i_bin, (label, count) in enumerate(COLLISION_COUNTS.items(), start=1):
+            assert h_coll.GetXaxis().GetBinLabel(i_bin) == label
+            assert h_coll.GetBinContent(i_bin) == count
+
 
 def test_fit_per_pt_settings(tmp_path):
     """Settings given for each pT bin (here the rebinning and the fit range) are used bin by bin"""
     cfg_file, out_dir = make_config(tmp_path, make_inputs(tmp_path, "gaussian"),
                                     rebin=[4, 2], mass_limits=[FIT_RANGE, [1.78, 2.08]])
     fit_script.fit(str(cfg_file))
-    check_pulls(out_dir, {"h_rawyields": N_DS})
+    check_pulls(out_dir, {"h_rawyields_ds": N_DS})
 
 
 def test_fit_params_fixed_to_mc(tmp_path, monkeypatch):
@@ -203,7 +224,7 @@ def test_fit_params_fixed_to_mc(tmp_path, monkeypatch):
         use_bkg_templ=True)
     fit_script.fit(str(cfg_file))
 
-    check_pulls(out_dir, {"h_rawyields": N_DS, "h_means": MU_DS}, n_sigma=6)
+    check_pulls(out_dir, {"h_rawyields_ds": N_DS, "h_means_ds": MU_DS}, n_sigma=6)
     # 2 signals x 2 parameters in each of the 2 pT bins, fixed to the (well measured) generated tails of the MC
     assert sorted((idx, par_name) for idx, par_name, _ in fixed) == sorted(
         [(idx, par_name) for idx in (0, 1) for par_name in ("alpha", "n")] * (len(PTBINS) - 1))

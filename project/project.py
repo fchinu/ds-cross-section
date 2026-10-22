@@ -13,10 +13,25 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from utils.utils import logger, preprocess_pt_bin_dir, get_object, get_cut_values  # pylint: disable=wrong-import-position
 
 
+def write_event_histograms(cfg, out_file):
+    """
+    Write the luminosity and the collision histograms to out_file as hLuminosity and hCollisions. They are the same in
+    all the pT bins of the preprocessing, so they are taken from the first one.
+    """
+    bin_dir = preprocess_pt_bin_dir(cfg["indir"], cfg["ptbins"][0], cfg["ptbins"][1])
+    with ROOT.TFile.Open(str(bin_dir / f"AnalysisResults_{bin_dir.name}.root")) as in_file:
+        h_lumi = get_object(in_file, cfg["luminosity_histogram"]).Clone("hLuminosity")
+        h_coll = get_object(in_file, cfg["collision_histogram"]).Clone("hCollisions")
+        h_lumi.SetDirectory(0)
+        h_coll.SetDirectory(0)
+
+    out_file.cd()
+    for obj in (h_lumi, h_coll):
+        obj.Write()
+
+
 def project_bin(cfg, i_bin, sparse_name, out_file):
-    """
-    Apply the cutset to the sparse of a pT bin and write the mass projection, with the event histograms, to out_file.
-    """
+    """Apply the cutset to the sparse of a pT bin and write the mass projection to out_file"""
     pt_min, pt_max = cfg["ptbins"][i_bin], cfg["ptbins"][i_bin + 1]
     bin_dir = preprocess_pt_bin_dir(cfg["indir"], pt_min, pt_max)
     in_file = ROOT.TFile.Open(str(bin_dir / f"AnalysisResults_{bin_dir.name}.root"))
@@ -33,15 +48,10 @@ def project_bin(cfg, i_bin, sparse_name, out_file):
     h_mass.SetTitle(f"{pt_min} < #it{{p}}_{{T}} < {pt_max} GeV/#it{{c}}")
     h_mass.SetDirectory(0)
 
-    h_ev = get_object(in_file, cfg["event_histogram"]).Clone(f"hEvents_{suffix}")
-    h_coll = get_object(in_file, cfg["collision_histogram"]).Clone(f"hCollisions_{suffix}")
-    h_ev.SetDirectory(0)
-    h_coll.SetDirectory(0)
     in_file.Close()
 
     out_file.cd()
-    for obj in (h_mass, h_ev, h_coll):
-        obj.Write()
+    h_mass.Write()
     logger(f"pT {pt_min}-{pt_max}: {h_mass.GetEntries():.0f} candidates after cuts")
 
 
@@ -67,6 +77,7 @@ def main(config):
         with ROOT.TFile.Open(str(out_dir / f"projections_{sparse_config["label"]}.root"), "recreate") as out_file:
             for i_bin in range(len(cfg["ptbins"]) - 1):
                 project_bin(cfg, i_bin, sparse_config["name"], out_file)
+            write_event_histograms(cfg, out_file)
     logger("Finished projecting")
 
 

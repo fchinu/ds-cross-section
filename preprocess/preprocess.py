@@ -31,6 +31,44 @@ def particle_origin(path):
     return (parts[2], parts[3]) if len(parts) == 5 and parts[1] == "MC" else None
 
 
+def get_bin_by_label(axis, label):
+    """Bin number of the bin of a labelled axis with the given label, raising if there is none"""
+    for i_bin in range(1, axis.GetNbins() + 1):
+        if axis.GetBinLabel(i_bin) == label:
+            return i_bin
+    raise KeyError(f"No bin labelled {label} in axis {axis.GetName()}")
+
+
+def get_luminosity_histogram(in_file, lumi_cfg, h_coll):
+    """
+    One-bin histogram (hLuminosity) with the integrated luminosity, in 1/mub, of an input file. It is the luminosity
+    of the RCT flag of the luminosity histogram, summed over the runs, scaled by the ratio of the MC and vdM visible
+    cross sections and by the ratio of the collisions passing the PV z and the PV chi2 selections.
+    Histograms of different files add up when merged with hadd.
+
+    Args:
+        in_file (TFile): input AnalysisResults.root
+        lumi_cfg (dict): "lumi" section of the input configuration
+        h_coll (TH1): collision selection histogram of the input file, with labelled bins
+    """
+    h_lumi = get_object(in_file, lumi_cfg["histogram"])
+    i_flag = get_bin_by_label(h_lumi.GetYaxis(), lumi_cfg["rct_flag"])
+    lumi = sum(h_lumi.GetBinContent(i_run, i_flag) for i_run in range(1, h_lumi.GetNbinsX() + 1))
+    lumi *= lumi_cfg["mc_visible_cross_section"] / lumi_cfg["vdm_visible_cross_section"]
+
+    selection = lumi_cfg["collision_selection"]
+    n_num = h_coll.GetBinContent(get_bin_by_label(h_coll.GetXaxis(), "PV #it{z}"))
+    n_den = h_coll.GetBinContent(get_bin_by_label(h_coll.GetXaxis(), "PV #it{#chi}^{2}"))
+    if n_den <= 0:
+        raise ValueError(f"No collisions in {selection['denominator']} of {h_coll.GetName()} in {in_file.GetName()}")
+    lumi *= n_num / n_den
+
+    h_luminosity = ROOT.TH1D("hLuminosity", "Luminosity (1/#mub)", 1, 0., 1.)
+    h_luminosity.SetDirectory(0)
+    h_luminosity.SetBinContent(1, lumi)
+    return h_luminosity
+
+
 def process_file(i_file, file_name, cfg, out_dir):
     """
     Split the configured sparses of one input file into pT bins, writing
@@ -50,8 +88,9 @@ def process_file(i_file, file_name, cfg, out_dir):
         reweighter = SparseReweighter(cfg["preprocess"]["weights"]["pt"], axes)
 
     in_file = ROOT.TFile.Open(file_name)
-    h_ev = get_object(in_file, input_cfg["event_histogram"])
     h_coll = get_object(in_file, input_cfg["collision_histogram"])
+    h_lumi = get_luminosity_histogram(in_file, input_cfg["lumi"], h_coll)
+    logger(f"File {i_file}: luminosity {h_lumi.GetBinContent(1):.1f} 1/mub")
 
     out_files = []
     for pt_min, pt_max in zip(pt_mins, pt_maxs):
@@ -77,10 +116,8 @@ def process_file(i_file, file_name, cfg, out_dir):
             if reweighter and mc_species:
                 sparse_rw = reweighter.reweight(sparse_pt, *mc_species, is_gen)
                 out_dir_root.WriteTObject(sparse_rw, f"{sparse_name}_reweighted")
-            # event histograms go next to each sparse; overwrite if two sparses share the directory.
-            # O2 histogram names can include their sub-folder (luminosity/hCounterTVXafterBCcuts): drop it
-            for histo in (h_ev, h_coll):
-                out_dir_root.WriteTObject(histo, histo.GetName().split("/")[-1], "Overwrite")
+            for histo in (h_lumi, h_coll):
+                out_file.WriteTObject(histo, histo.GetName().split("/")[-1], "Overwrite")
         logger(f"File {i_file}: {sparse_cfg['path']} split into {len(out_files)} pT bins")
 
     for out_file in out_files:

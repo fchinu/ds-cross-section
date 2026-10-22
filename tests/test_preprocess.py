@@ -1,6 +1,7 @@
 """
 Tests of preprocess/preprocess.py
 """
+import copy
 import shutil
 import subprocess
 
@@ -9,14 +10,26 @@ import pytest
 import ROOT
 import yaml
 
-from helpers import (AXES, AXES_CFG, COLLISION_HISTOGRAM, EVENT_HISTOGRAM, PT_WEIGHTS, PTB_WEIGHTS,
+from helpers import (AXES, AXES_CFG, COLLISION_COUNTS, COLLISIONS_HISTOGRAM, LUMI_HISTOGRAM, N_RUNS,
+                     PT_WEIGHTS, PTB_WEIGHTS, make_collisions_histogram,
                      make_sparse, random_points, sparse_sum, weight, write_analysis_results, write_weights)
 import preprocess
 from utils.utils import preprocess_pt_bin_dir
 
 PTBINS = [0., 2., 4., 8., 24.]
 BKG_CUTS = [0.1, 0.3, 0.5, 0.9]
-N_EVENTS = 1000
+MC_XSEC, VDM_XSEC = 59.5, 54.0  # visible cross sections (mb): used for the luminosity histogram, from vdM scans
+# luminosity of the CBT_hadronPID flag (second row of the mock luminosity histogram: 200 * (run + 1)) summed over the
+# runs, scaled by the cross sections and by the PV z over PV chi2 collisions
+LUMI_CFG = {
+    "histogram": LUMI_HISTOGRAM,
+    "rct_flag": "CBT_hadronPID",
+    "mc_visible_cross_section": MC_XSEC,
+    "vdm_visible_cross_section": VDM_XSEC,
+    "collision_selection": {"numerator": "PV #it{z}", "denominator": "PV #it{#chi}^{2}"},
+}
+LUMINOSITY = (sum(200. * (i_run + 1) for i_run in range(N_RUNS)) * MC_XSEC / VDM_XSEC
+              * COLLISION_COUNTS["PV #it{z}"] / COLLISION_COUNTS["PV #it{#chi}^{2}"])
 DATA_SPARSE = "hf-task-ds/Data/hSparseMass"
 DATA_SPARSES = {DATA_SPARSE: ("reco", "data")}  # path: (sparse type, axes)
 MC_SPARSES = {
@@ -37,7 +50,7 @@ def make_input(tmp_path, name, sparses, seed):
     file_name = tmp_path / name
     write_analysis_results(
         file_name, {path: make_sparse(path.replace("/", "_"), AXES[axes], points[path])
-                    for path, (_, axes) in sparses.items()}, N_EVENTS)
+                    for path, (_, axes) in sparses.items()})
     return file_name, points
 
 
@@ -52,12 +65,11 @@ def make_config(tmp_path, files, sparses, is_mc=False, pt_weights=None):
             "input": {
                 "files": [str(file_name) for file_name in files],
                 "is_mc": is_mc,
-                "event_histogram": EVENT_HISTOGRAM,
-                "collision_histogram": COLLISION_HISTOGRAM,
                 "sparses": [{"type": kind, "path": path} for path, (kind, _) in sparses.items()],
             },
         },
     }
+    cfg["preprocess"]["input"].update(lumi=LUMI_CFG, collision_histogram=COLLISIONS_HISTOGRAM)
     if pt_weights is not None:
         cfg["preprocess"]["weights"] = {"pt": pt_weights}
     return cfg
@@ -101,7 +113,7 @@ def test_get_or_make_dir(tmp_path):
 
 
 def test_process_file_data(tmp_path):
-    """Each pT-bin job file holds the selected candidates and the event histograms, under their plain names"""
+    """Each pT-bin job file holds the selected candidates, with the luminosity and collision histograms at top level"""
     file_name, points = make_input(tmp_path, "AnalysisResults.root", DATA_SPARSES, seed=1)
     out_dir = tmp_path / "out" / "data"
     preprocess.process_file(0, str(file_name), make_config(tmp_path, [file_name], DATA_SPARSES), out_dir)
@@ -110,15 +122,48 @@ def test_process_file_data(tmp_path):
         n_selected = len(selected(points[DATA_SPARSE], "reco", pt_min, pt_max, bkg_max))
         assert n_selected > 0
         with ROOT.TFile.Open(str(job_file(out_dir, pt_min, pt_max))) as job:
-            assert keys(job, "hf-task-ds/Data") == ["hCollisionsCentOcc;1", "hCounterTVXafterBCcuts;1", "hSparseMass;1"]
+            assert keys(job, "hf-task-ds/Data") == ["hSparseMass;1"]
             assert sparse_sum(job.Get(DATA_SPARSE)) == n_selected
-            assert job.Get("hf-task-ds/Data/hCounterTVXafterBCcuts").GetBinContent(1) == N_EVENTS
-            assert job.Get("hf-task-ds/Data/hCollisionsCentOcc").GetBinContent(1, 1) == N_EVENTS
+            assert job.Get("hLuminosity").GetBinContent(1) == pytest.approx(LUMINOSITY)
+            h_coll = job.Get("hCollisions")
+            counts = [h_coll.GetBinContent(i) for i in range(1, h_coll.GetNbinsX() + 1)]
+            assert counts == list(COLLISION_COUNTS.values())
+
+
+def test_get_luminosity_histogram_missing_label(tmp_path):
+    """The RCT flag is found by its label, a missing one raises"""
+    file_name, _ = make_input(tmp_path, "AnalysisResults.root", DATA_SPARSES, seed=5)
+    lumi_cfg = copy.deepcopy(LUMI_CFG)
+    lumi_cfg["rct_flag"] = "CBT_missing"
+    with ROOT.TFile.Open(str(file_name)) as in_file:
+        with pytest.raises(KeyError, match="CBT_missing"):
+            preprocess.get_luminosity_histogram(in_file, lumi_cfg, in_file.Get(COLLISIONS_HISTOGRAM))
+
+
+def test_get_luminosity_histogram_label_order(tmp_path):
+    """Labels are matched to bins by bin number, not by the order of the label list of the axis"""
+    file_name, _ = make_input(tmp_path, "AnalysisResults.root", DATA_SPARSES, seed=7)
+    h_coll = make_collisions_histogram(reverse_label_order=True)
+    labels = h_coll.GetXaxis().GetLabels()
+    assert labels.At(0).GetName() == list(COLLISION_COUNTS)[-1]  # the label list starts with the last bin
+    with ROOT.TFile.Open(str(file_name)) as in_file:
+        h_luminosity = preprocess.get_luminosity_histogram(in_file, LUMI_CFG, h_coll)
+    assert h_luminosity.GetBinContent(1) == pytest.approx(LUMINOSITY)
+
+
+def test_get_luminosity_histogram_no_collisions(tmp_path):
+    """The luminosity cannot be scaled by the collision selections if the denominator has no collisions"""
+    file_name, _ = make_input(tmp_path, "AnalysisResults.root", DATA_SPARSES, seed=6)
+    with ROOT.TFile.Open(str(file_name)) as in_file:
+        h_coll = in_file.Get(COLLISIONS_HISTOGRAM)
+        h_coll.SetBinContent(2, 0.)  # PV chi2
+        with pytest.raises(ValueError, match="No collisions"):
+            preprocess.get_luminosity_histogram(in_file, LUMI_CFG, h_coll)
 
 
 @pytest.mark.parametrize("apply_weights", [True, False])
 def test_process_file_mc(tmp_path, apply_weights):
-    """MC sparses are split like data; with pT weights on, each MC/<particle>/<origin> sparse gets a reweighted copy"""
+    """MC sparses and luminosity are processed like data; with pT weights on, each MC sparse gets a reweighted copy"""
     file_name, points = make_input(tmp_path, "AnalysisResults.root", MC_SPARSES, seed=2)
     weights_file = tmp_path / "ptweights.root"
     write_weights(weights_file, {"hist_prompt": PT_WEIGHTS, "hist_nonprompt": PTB_WEIGHTS})
@@ -130,6 +175,7 @@ def test_process_file_mc(tmp_path, apply_weights):
 
     for pt_min, pt_max, bkg_max in zip(PTBINS[:-1], PTBINS[1:], BKG_CUTS):
         with ROOT.TFile.Open(str(job_file(out_dir, pt_min, pt_max))) as job:
+            assert job.Get("hLuminosity").GetBinContent(1) == pytest.approx(LUMINOSITY)
             for path, (kind, _) in MC_SPARSES.items():
                 sel = selected(points[path], kind, pt_min, pt_max, bkg_max)
                 directory, name = path.rsplit("/", 1)
@@ -183,7 +229,7 @@ def test_main_merges_and_cleans_up(tmp_path):
         with ROOT.TFile.Open(str(bin_dir / f"AnalysisResults_{bin_dir.name}.root")) as merged:
             expected = sum(len(selected(points[DATA_SPARSE], "reco", pt_min, pt_max, bkg_max)) for _, points in inputs)
             assert sparse_sum(merged.Get(DATA_SPARSE)) == expected
-            assert merged.Get("hf-task-ds/Data/hCounterTVXafterBCcuts").GetBinContent(1) == 2 * N_EVENTS
+            assert merged.Get("hLuminosity").GetBinContent(1) == pytest.approx(2 * LUMINOSITY)
 
 
 @needs_hadd

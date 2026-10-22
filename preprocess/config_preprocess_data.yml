@@ -65,8 +65,15 @@ preprocess:
               inputs/data/Train772129/AnalysisResults_LHC23_pass4_10.root,
         ]
         is_mc: False
-        event_histogram: eventselection-run3/luminosity/hCounterTVXafterBCcuts #eventselection-run3/luminosity/hCounterTVXafterBCcuts
-        collision_histogram: hf-candidate-creator-3prong/hCollisionsCentOcc
+        lumi:
+            histogram: eventselection-run3/luminosity/hLumiTVXafterBCcutsRCT
+            rct_flag: CBT_hadronPID # row of the luminosity histogram
+            mc_visible_cross_section: 59.5 # used to compute the luminosity histogram
+            vdm_visible_cross_section: 54.0
+            collision_selection: # bins of the collision histogram: luminosity scaled by numerator / denominator
+                numerator: 'PV #it{z}'
+                denominator: 'PV #it{#chi}^{2}'
+        collision_histogram: hf-candidate-creator-3prong/hCollisions
         sparses:
         -   type: reco
             path: hf-task-ds/Data/hSparseMass

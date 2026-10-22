@@ -367,12 +367,16 @@ def fit(config_file): # pylint: disable=too-many-locals,too-many-statements, too
             pt_lims, [mean[i_sig] for mean in means_mc], [unc[i_sig] for unc in means_mc_unc])
         file_root[f"h_sigmas_mc_{label}"] = create_hist(
             pt_lims, [sigma[i_sig] for sigma in sigmas_mc], [unc[i_sig] for unc in sigmas_mc_unc])
+
+    with uproot.open(cfg["inputs"]["data"]) as data_file:
+        for name in ("hLuminosity", "hCollisions"):
+            file_root[name] = data_file[name]
     file_root.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Arguments")
-    parser.add_argument("--config", "-c", metavar="text", default="config_fit.yml",
-                        help="yaml config file for fit", required=True)
+    parser.add_argument("config", metavar="text", default="config_fit.yml",
+                        help="yaml config file for fit")
     args = parser.parse_args()
 
     fit(args.config)

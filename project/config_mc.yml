@@ -15,8 +15,8 @@ sparses:
       name: hf-task-ds/MC/Dplus/Bkg/hSparseMass
 
     
-event_histogram: hf-task-ds/Data/hCounterTVXafterBCcuts
-collision_histogram: hf-task-ds/Data/hCollisionsCentOcc
+luminosity_histogram: hLuminosity
+collision_histogram: hCollisions
 axis_mass: 0
 cutset: configs/cutset.yml
 
