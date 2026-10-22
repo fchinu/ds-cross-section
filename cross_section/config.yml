@@ -1,0 +1,13 @@
+inputs:
+  raw_yields: fit/outputs/test/fit_mass_test.root
+  efficiency: efficiency/outputs/test/efficiency.root
+
+br:
+  ds:
+    value: 0.0225 # https://pdglive.lbl.gov/BranchingRatio.action?desig=114&parCode=S034&home=MXXX040
+    unc:   0.0005 # https://pdglive.lbl.gov/BranchingRatio.action?desig=114&parCode=S034&home=MXXX040
+  dplus:
+    value: 0.00267 # https://pdglive.lbl.gov/BranchingRatio.action?desig=89&parCode=S031&home=MXXX035
+    unc:  [0.00008, 0.00006] # https://pdglive.lbl.gov/BranchingRatio.action?desig=89&parCode=S031&home=MXXX035
+
+output_dir: cross_section/outputs/test
