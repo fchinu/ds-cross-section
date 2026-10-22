@@ -3,7 +3,6 @@ Tests of preprocess/preprocess.py
 """
 import shutil
 import subprocess
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -13,6 +12,7 @@ import yaml
 from helpers import (AXES, AXES_CFG, COLLISION_HISTOGRAM, EVENT_HISTOGRAM, PT_WEIGHTS, PTB_WEIGHTS,
                      make_sparse, random_points, sparse_sum, weight, write_analysis_results, write_weights)
 import preprocess
+from utils.utils import preprocess_pt_bin_dir
 
 PTBINS = [0., 2., 4., 8., 24.]
 BKG_CUTS = [0.1, 0.3, 0.5, 0.9]
@@ -79,13 +79,7 @@ def keys(root_file, directory):
 
 def job_file(out_dir, pt_min, pt_max, i_file=0):
     """Path of the job file of an input file for a pT bin"""
-    return preprocess.pt_bin_dir(out_dir, pt_min, pt_max) / "jobs" / f"AnalysisResults_{i_file}.root"
-
-
-@pytest.mark.parametrize("pt_min, pt_max, name", [(0., 0.5, "pt_0_5"), (2., 2.5, "pt_20_25"), (12., 24., "pt_120_240")])
-def test_pt_bin_dir(pt_min, pt_max, name):
-    """pT-bin directories are named after the bin edges in units of 100 MeV/c"""
-    assert preprocess.pt_bin_dir("out", pt_min, pt_max) == Path("out") / name
+    return preprocess_pt_bin_dir(out_dir, pt_min, pt_max) / "jobs" / f"AnalysisResults_{i_file}.root"
 
 
 @pytest.mark.parametrize("path, expected", [
@@ -183,7 +177,7 @@ def test_main_merges_and_cleans_up(tmp_path):
 
     out_dir = tmp_path / "out" / "data"
     for pt_min, pt_max, bkg_max in zip(PTBINS[:-1], PTBINS[1:], BKG_CUTS):
-        bin_dir = preprocess.pt_bin_dir(out_dir, pt_min, pt_max)
+        bin_dir = preprocess_pt_bin_dir(out_dir, pt_min, pt_max)
         assert not (bin_dir / "jobs").exists()
         assert (bin_dir / "log_merge.txt").exists()
         with ROOT.TFile.Open(str(bin_dir / f"AnalysisResults_{bin_dir.name}.root")) as merged:

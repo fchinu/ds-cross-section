@@ -14,21 +14,8 @@ import yaml
 import ROOT
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from utils.utils import logger  # pylint: disable=wrong-import-position
+from utils.utils import logger, preprocess_pt_bin_dir, get_object  # pylint: disable=wrong-import-position
 from utils.sparse_reweighter import SparseReweighter  # pylint: disable=wrong-import-position
-
-
-def pt_bin_dir(out_dir, pt_min, pt_max):
-    """Output directory of a pT bin, e.g. <out_dir>/pt_20_25 for 2 < pT < 2.5 GeV/c"""
-    return Path(out_dir) / f"pt_{int(pt_min * 10)}_{int(pt_max * 10)}"
-
-
-def get_object(in_file, path):
-    """Get an object from a ROOT file, raising if it is missing"""
-    obj = in_file.Get(path)
-    if not obj:
-        raise KeyError(f"{path} not found in {in_file.GetName()}")
-    return obj
 
 
 def get_or_make_dir(root_file, path):
@@ -68,7 +55,7 @@ def process_file(i_file, file_name, cfg, out_dir):
 
     out_files = []
     for pt_min, pt_max in zip(pt_mins, pt_maxs):
-        jobs_dir = pt_bin_dir(out_dir, pt_min, pt_max) / "jobs"
+        jobs_dir = preprocess_pt_bin_dir(out_dir, pt_min, pt_max) / "jobs"
         jobs_dir.mkdir(parents=True, exist_ok=True)
         out_files.append(ROOT.TFile.Open(str(jobs_dir / f"AnalysisResults_{i_file}.root"), "recreate"))
 
@@ -107,7 +94,7 @@ def merge(out_dir, cfg, n_files):
     then delete them. If hadd fails, the job files of that bin are kept.
     """
     for pt_min, pt_max in zip(cfg["ptbins"][:-1], cfg["ptbins"][1:]):
-        bin_dir = pt_bin_dir(out_dir, pt_min, pt_max)
+        bin_dir = preprocess_pt_bin_dir(out_dir, pt_min, pt_max)
         jobs = [str(bin_dir / "jobs" / f"AnalysisResults_{i_file}.root") for i_file in range(n_files)]
         merged = bin_dir / f"AnalysisResults_{bin_dir.name}.root"
         logger(f"Merging {n_files} job files into {merged}")

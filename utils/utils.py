@@ -69,3 +69,29 @@ def get_root_files_in_directory(directory):
     path = Path(directory)
     root_files = [str(f) for f in sorted(path.glob('*.root'))]
     return root_files
+
+
+def preprocess_pt_bin_dir(out_dir, pt_min, pt_max):
+    """Output directory of a pT bin of the preprocessing, e.g. <out_dir>/pt_20_25 for 2 < pT < 2.5 GeV/c"""
+    return Path(out_dir) / f"pt_{int(pt_min * 10)}_{int(pt_max * 10)}"
+
+
+def get_object(in_file, path):
+    """Get an object from a ROOT file, raising if it is missing"""
+    obj = in_file.Get(path)
+    if not obj:
+        raise KeyError(f"{path} not found in {in_file.GetName()}")
+    return obj
+
+
+def get_cut_values(cut, i_bin, n_bins):
+    """(min, max) of a cut in a pT bin: values can be single numbers or lists with one value per pT bin"""
+    def get_value(key):
+        value = cut[key]
+        if isinstance(value, list):
+            if len(value) != n_bins:
+                raise ValueError(f"Cut {cut['name']}: {len(value)} values of {key} for {n_bins} pT bins")
+            value = value[i_bin]
+        return value
+
+    return get_value("min"), get_value("max")

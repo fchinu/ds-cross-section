@@ -9,21 +9,7 @@ import yaml
 import ROOT
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from preprocess.preprocess import pt_bin_dir, get_object  # pylint: disable=wrong-import-position, no-name-in-module
-from utils.utils import logger  # pylint: disable=wrong-import-position
-
-
-def get_cut_values(cut, i_bin, n_bins):
-    """(min, max) of a cut in a pT bin: values can be single numbers or lists with one value per pT bin"""
-    def get_value(key):
-        value = cut[key]
-        if isinstance(value, list):
-            if len(value) != n_bins:
-                raise ValueError(f"Cut {cut['name']}: {len(value)} values of {key} for {n_bins} pT bins")
-            value = value[i_bin]
-        return value
-
-    return get_value("min"), get_value("max")
+from utils.utils import logger, preprocess_pt_bin_dir, get_object, get_cut_values  # pylint: disable=wrong-import-position
 
 
 def project_bin(cfg, i_bin, sparse_name, out_file):
@@ -31,7 +17,7 @@ def project_bin(cfg, i_bin, sparse_name, out_file):
     Apply the cutset to the sparse of a pT bin and write the mass projection, with the event histograms, to out_file.
     """
     pt_min, pt_max = cfg["ptbins"][i_bin], cfg["ptbins"][i_bin + 1]
-    bin_dir = pt_bin_dir(cfg["indir"], pt_min, pt_max)
+    bin_dir = preprocess_pt_bin_dir(cfg["indir"], pt_min, pt_max)
     in_file = ROOT.TFile.Open(str(bin_dir / f"AnalysisResults_{bin_dir.name}.root"))
     if not in_file:
         raise FileNotFoundError(f"Preprocessed file of pT bin {pt_min}-{pt_max} not found in {bin_dir}")
