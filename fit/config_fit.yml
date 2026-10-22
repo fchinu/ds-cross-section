@@ -41,11 +41,6 @@ fit_configs:
 
   fix_correlated_bkg_to_signal: true  # bool or list of bools (one per pT bin)
 
-plot_style:
-  pt_int:
-    n_bins: 76
-  n_bins: [76, 76, 76, 76, 76, 76, 76]
-
 outputs:
   directory: "fit/outputs/test"
   suffix: "_test"

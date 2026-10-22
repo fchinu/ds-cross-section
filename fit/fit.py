@@ -202,9 +202,9 @@ def fit(config_file): # pylint: disable=too-many-locals,too-many-statements, too
     with open(os.path.join(outdir, f"cutset{cfg['outputs']['suffix']}.yml"), "w") as f:  # pylint: disable=unspecified-encoding
         yaml.dump(cut_set, f, sort_keys=False)
 
-    raw_yields, raw_yields_unc = [], []
-    signif, signif_unc, s_over_b, s_over_b_unc = [], [], [], []
-    means, means_unc, sigmas, sigmas_unc = [], [], [], []
+    signal_suffixes = ("_ds", "_dplus")
+    result_names = ("rawyields", "significance", "soverb", "means", "sigmas")
+    results = {(i_sig, name): ([], []) for i_sig in range(len(signal_suffixes)) for name in result_names}
     means_mc, means_mc_unc, sigmas_mc, sigmas_mc_unc = [], [], [], []
     fixed_pars_mc = []  # per pT bin: {(signal index, parameter name): MC value}
 
@@ -216,8 +216,7 @@ def fit(config_file): # pylint: disable=too-many-locals,too-many-statements, too
         data_hdl_mc = DataHandler(cfg["inputs"]["mc"][0], var_name="fM",
                                   histoname=f"hMass_{pt_min*10:.0f}_{pt_max*10:.0f}",
                                   limits=cfg["fit_configs"]["mass_limits"][ipt],
-                                  rebin=cfg["fit_configs"]["rebin"][ipt],
-                                  nbins=cfg["plot_style"]["n_bins"][ipt])
+                                  rebin=cfg["fit_configs"]["rebin"][ipt])
         data_hdl_mc.add_data(cfg["inputs"]["mc"][1], var_name="fM", histoname=f"hMass_{pt_min*10:.0f}_{pt_max*10:.0f}")
         fitter_mc_pt = F2MassFitter(data_hdl_mc,
                                     cfg["fit_configs"]["signal_funcs"][ipt],
@@ -271,8 +270,7 @@ def fit(config_file): # pylint: disable=too-many-locals,too-many-statements, too
         # then we fit data
         data_hdl = DataHandler(cfg["inputs"]["data"], var_name="fM", histoname=f"hMass_{pt_min*10:.0f}_{pt_max*10:.0f}",
                                limits=cfg["fit_configs"]["mass_limits"][ipt],
-                               rebin=cfg["fit_configs"]["rebin"][ipt],
-                               nbins=cfg["plot_style"]["n_bins"][ipt])
+                               rebin=cfg["fit_configs"]["rebin"][ipt])
 
         bkg_funcs = cfg["fit_configs"]["bkg_funcs"][ipt]
         label_bkg_pdf = ["Comb. bkg"]
@@ -284,12 +282,10 @@ def fit(config_file): # pylint: disable=too-many-locals,too-many-statements, too
             data_hdl_dplus_signal = DataHandler(cfg["inputs"]["mc"][1], var_name="fM",
                                                 histoname=f"hMass_{pt_min*10:.0f}_{pt_max*10:.0f}",
                                                 limits=cfg["fit_configs"]["mass_limits"][ipt],
-                                                rebin=cfg["fit_configs"]["rebin"][ipt],
-                                                nbins=cfg["plot_style"]["n_bins"][ipt])
+                                                rebin=cfg["fit_configs"]["rebin"][ipt])
             data_hdl_bkg = DataHandler(h_bkg, var_name="fM",
                                        limits=cfg["fit_configs"]["mass_limits"][ipt],
-                                       rebin=cfg["fit_configs"]["rebin"][ipt],
-                                       nbins=cfg["plot_style"]["n_bins"][ipt])
+                                       rebin=cfg["fit_configs"]["rebin"][ipt])
             bkg_funcs.insert(0, "hist")
             label_bkg_pdf.insert(0, r'$\mathrm{D^\pm \rightarrow K^\pm K^\mp\pi^\pm}$')
 
@@ -348,32 +344,24 @@ def fit(config_file): # pylint: disable=too-many-locals,too-many-statements, too
             fig.savefig(os.path.join(outdir, f"fit_mass_pt{pt_min*10:.0f}_{pt_max*10:.0f}.pdf"))
             fig_res.savefig(os.path.join(outdir, f"fit_massres_pt{pt_min*10:.0f}_{pt_max*10:.0f}.pdf"))
 
-            rawy, rawy_unc = fitter_pt.get_raw_yield(0)
-            sign, sign_unc = fitter_pt.get_significance(0)
-            soverb, soverb_unc = fitter_pt.get_signal_over_background(0)
-            mean, mean_unc = fitter_pt.get_signal_parameter(0, "mu")
-            sigma, sigma_unc = fitter_pt.get_signal_parameter(0, "sigma")
-
-            raw_yields.append(rawy)
-            raw_yields_unc.append(rawy_unc)
-            signif.append(sign)
-            signif_unc.append(sign_unc)
-            s_over_b.append(soverb)
-            s_over_b_unc.append(soverb_unc)
-            means.append(mean)
-            means_unc.append(mean_unc)
-            sigmas.append(sigma)
-            sigmas_unc.append(sigma_unc)
+            for i_sig in range(len(signal_suffixes)):
+                fit_results = {
+                    "rawyields": fitter_pt.get_raw_yield(i_sig),
+                    "significance": fitter_pt.get_significance(i_sig),
+                    "soverb": fitter_pt.get_signal_over_background(i_sig),
+                    "means": fitter_pt.get_signal_parameter(i_sig, "mu"),
+                    "sigmas": fitter_pt.get_signal_parameter(i_sig, "sigma"),
+                }
+                for name, (value, value_unc) in fit_results.items():
+                    results[(i_sig, name)][0].append(value)
+                    results[(i_sig, name)][1].append(value_unc)
 
             fitter_pt.dump_to_root(
                 outfile_name, option="update", suffix=f"_pt{pt_min*10:.0f}_{pt_max*10:.0f}")
 
     file_root = uproot.update(outfile_name)
-    file_root["h_rawyields"] = create_hist(pt_lims, raw_yields, raw_yields_unc)
-    file_root["h_significance"] = create_hist(pt_lims, signif, signif_unc)
-    file_root["h_soverb"] = create_hist(pt_lims, s_over_b, s_over_b_unc)
-    file_root["h_means"] = create_hist(pt_lims, means, means_unc)
-    file_root["h_sigmas"] = create_hist(pt_lims, sigmas, sigmas_unc)
+    for (i_sig, name), (values, uncs) in results.items():
+        file_root[f"h_{name}{signal_suffixes[i_sig]}"] = create_hist(pt_lims, values, uncs)
     for i_sig, label in enumerate(("ds", "dplus")):
         file_root[f"h_means_mc_{label}"] = create_hist(
             pt_lims, [mean[i_sig] for mean in means_mc], [unc[i_sig] for unc in means_mc_unc])
