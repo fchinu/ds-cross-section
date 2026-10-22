@@ -374,8 +374,11 @@ def fit(config_file): # pylint: disable=too-many-locals,too-many-statements, too
     file_root["h_soverb"] = create_hist(pt_lims, s_over_b, s_over_b_unc)
     file_root["h_means"] = create_hist(pt_lims, means, means_unc)
     file_root["h_sigmas"] = create_hist(pt_lims, sigmas, sigmas_unc)
-    file_root["h_means_mc"] = create_hist(pt_lims, means_mc, means_mc_unc)
-    file_root["h_sigmas_mc"] = create_hist(pt_lims, sigmas_mc, sigmas_mc_unc)
+    for i_sig, label in enumerate(("ds", "dplus")):
+        file_root[f"h_means_mc_{label}"] = create_hist(
+            pt_lims, [mean[i_sig] for mean in means_mc], [unc[i_sig] for unc in means_mc_unc])
+        file_root[f"h_sigmas_mc_{label}"] = create_hist(
+            pt_lims, [sigma[i_sig] for sigma in sigmas_mc], [unc[i_sig] for unc in sigmas_mc_unc])
     file_root.close()
 
 if __name__ == "__main__":
