@@ -1,0 +1,4 @@
+indir: 'preprocess/mc'    # preprocess output, contains pt_X_Y/AnalysisResults_pt_X_Y.root
+outdir: 'efficiency/outputs/test'      # output: <outdir>/efficiency.root
+cutset: configs/cutset.yml
+
