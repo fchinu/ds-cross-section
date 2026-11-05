@@ -179,7 +179,12 @@ def fit(config_file): # pylint: disable=too-many-locals,too-many-statements, too
     for key in ("signal_funcs", "bkg_funcs"):
         fit_cfg[key] = expand_per_pt(fit_cfg[key], n_pt, lambda v: all(isinstance(f, str) for f in v))
     fit_cfg["fix_params_to_mc"] = expand_per_pt(
-        fit_cfg.get("fix_params_to_mc", []), n_pt, lambda v: all(isinstance(p, str) for p in v))
+        fit_cfg.get("fix_params_to_mc") or [], n_pt, lambda v: all(isinstance(p, str) for p in v))
+    fix_file_cfg = fit_cfg.setdefault("fix_params_to_file", {})
+    fix_file_cfg["do"] = expand_per_pt(fix_file_cfg.get("do", False), n_pt, lambda v: isinstance(v, bool))
+    fix_file_cfg["file"] = expand_per_pt(fix_file_cfg.get("file"), n_pt, lambda v: v is None or isinstance(v, str))
+    fix_file_cfg["params"] = expand_per_pt(
+        fix_file_cfg.get("params") or [], n_pt, lambda v: all(isinstance(p, str) for p in v))
     fit_cfg["fix_correlated_bkg_to_signal"] = expand_per_pt(
         fit_cfg["fix_correlated_bkg_to_signal"], n_pt, lambda v: isinstance(v, bool))
     fit_cfg["mass_limits"] = expand_per_pt(
@@ -203,7 +208,7 @@ def fit(config_file): # pylint: disable=too-many-locals,too-many-statements, too
         yaml.dump(cut_set, f, sort_keys=False)
 
     signal_suffixes = ("_ds", "_dplus")
-    result_names = ("rawyields", "significance", "soverb", "means", "sigmas")
+    result_names = ("rawyields", "significance", "soverb")
     results = {(i_sig, name): ([], []) for i_sig in range(len(signal_suffixes)) for name in result_names}
     means_mc, means_mc_unc, sigmas_mc, sigmas_mc_unc = [], [], [], []
     fixed_pars_mc = []  # per pT bin: {(signal index, parameter name): MC value}
@@ -319,6 +324,13 @@ def fit(config_file): # pylint: disable=too-many-locals,too-many-statements, too
         fitter_pt.set_signal_initpar(1, "frac", 0.2, limits=[0., 1.])
         for (i_sig, par_name), value in fixed_pars_mc[ipt].items():
             fitter_pt.set_signal_initpar(i_sig, par_name, value, fix=True)
+        fix_file_cfg = cfg["fit_configs"]["fix_params_to_file"]
+        if fix_file_cfg["do"][ipt]:
+            with uproot.open(fix_file_cfg["file"][ipt]) as file_pars:
+                for i_sig, suffix in enumerate(signal_suffixes):
+                    for par_name in fix_file_cfg["params"][ipt]:
+                        value = file_pars[f"h_{par_name}{suffix}"].values()[ipt]
+                        fitter_pt.set_signal_initpar(i_sig, par_name, value, fix=True)
         if use_corr_bkg_pt and not cfg["fit_configs"]["fix_correlated_bkg_to_signal"][ipt]:
             fitter_pt.set_background_initpar(0, "frac", 0.5, limits=[0., 1.])
         icombbkg = 1 if use_corr_bkg_pt else 0
@@ -349,10 +361,13 @@ def fit(config_file): # pylint: disable=too-many-locals,too-many-statements, too
                     "rawyields": fitter_pt.get_raw_yield(i_sig),
                     "significance": fitter_pt.get_significance(i_sig),
                     "soverb": fitter_pt.get_signal_over_background(i_sig),
-                    "means": fitter_pt.get_signal_parameter(i_sig, "mu"),
-                    "sigmas": fitter_pt.get_signal_parameter(i_sig, "sigma"),
                 }
                 for name, (value, value_unc) in fit_results.items():
+                    results[(i_sig, name)][0].append(value)
+                    results[(i_sig, name)][1].append(value_unc)
+                for name in fitter_pt.signal_pdfs[i_sig].parameters:
+                    value, value_unc = fitter_pt.get_signal_parameter(i_sig, name)
+                    results.setdefault((i_sig, name), ([], []))
                     results[(i_sig, name)][0].append(value)
                     results[(i_sig, name)][1].append(value_unc)
 
@@ -363,9 +378,9 @@ def fit(config_file): # pylint: disable=too-many-locals,too-many-statements, too
     for (i_sig, name), (values, uncs) in results.items():
         file_root[f"h_{name}{signal_suffixes[i_sig]}"] = create_hist(pt_lims, values, uncs)
     for i_sig, label in enumerate(("ds", "dplus")):
-        file_root[f"h_means_mc_{label}"] = create_hist(
+        file_root[f"h_mu_mc_{label}"] = create_hist(
             pt_lims, [mean[i_sig] for mean in means_mc], [unc[i_sig] for unc in means_mc_unc])
-        file_root[f"h_sigmas_mc_{label}"] = create_hist(
+        file_root[f"h_sigma_mc_{label}"] = create_hist(
             pt_lims, [sigma[i_sig] for sigma in sigmas_mc], [unc[i_sig] for unc in sigmas_mc_unc])
 
     with uproot.open(cfg["inputs"]["data"]) as data_file:

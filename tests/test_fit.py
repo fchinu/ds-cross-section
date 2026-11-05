@@ -176,13 +176,13 @@ def test_fit_gaussian_signals(tmp_path):
     cfg_file, out_dir = make_config(tmp_path, make_inputs(tmp_path, "gaussian"))
     fit_script.fit(str(cfg_file))
 
-    check_pulls(out_dir, {"h_rawyields_ds": N_DS, "h_means_ds": MU_DS, "h_sigmas_ds": SIGMA_DS,
-                          "h_rawyields_dplus": N_DPLUS, "h_means_dplus": MU_DPLUS})
-    for name in ("h_significance_ds", "h_significance_dplus", "h_soverb_ds", "h_soverb_dplus", "h_sigmas_dplus"):
+    check_pulls(out_dir, {"h_rawyields_ds": N_DS, "h_mu_ds": MU_DS, "h_sigma_ds": SIGMA_DS,
+                          "h_rawyields_dplus": N_DPLUS, "h_mu_dplus": MU_DPLUS})
+    for name in ("h_significance_ds", "h_significance_dplus", "h_soverb_ds", "h_soverb_dplus", "h_sigma_dplus"):
         assert np.all(read_hist(out_dir, name)[0] > 0), name
     # the MC fits give the peak positions and widths used as starting values
-    expected_mc = {"h_means_mc_ds": MU_DS, "h_means_mc_dplus": MU_DPLUS,
-                   "h_sigmas_mc_ds": SIGMA_DS, "h_sigmas_mc_dplus": SIGMA_DPLUS}
+    expected_mc = {"h_mu_mc_ds": MU_DS, "h_mu_mc_dplus": MU_DPLUS,
+                   "h_sigma_mc_ds": SIGMA_DS, "h_sigma_mc_dplus": SIGMA_DPLUS}
     for name, truth in expected_mc.items():
         values, _ = read_hist(out_dir, name)
         assert values.shape[0] == len(PTBINS) - 1
@@ -224,7 +224,7 @@ def test_fit_params_fixed_to_mc(tmp_path, monkeypatch):
         use_bkg_templ=True)
     fit_script.fit(str(cfg_file))
 
-    check_pulls(out_dir, {"h_rawyields_ds": N_DS, "h_means_ds": MU_DS}, n_sigma=6)
+    check_pulls(out_dir, {"h_rawyields_ds": N_DS, "h_mu_ds": MU_DS}, n_sigma=6)
     # 2 signals x 2 parameters in each of the 2 pT bins, fixed to the (well measured) generated tails of the MC
     assert sorted((idx, par_name) for idx, par_name, _ in fixed) == sorted(
         [(idx, par_name) for idx in (0, 1) for par_name in ("alpha", "n")] * (len(PTBINS) - 1))

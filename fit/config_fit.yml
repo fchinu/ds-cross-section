@@ -27,6 +27,10 @@ fit_configs:
   signal_funcs: ["doublecbsymm", "doublecbsymm"]  # list or list of lists (one per pT bin)
   fix_params_to_mc: ["alpha", "n"]  # list or list of lists (one per pT bin)
   fix_ratio_dplus_ds_sigma: true  # bool/float or list of bools/floats (one per pT bin). If bool, fix to MC value
+  fix_params_to_file:
+    do: false
+    file: null
+    params: ["alpha", "n"]
   bkg_funcs: ["chebpol2"]  # list or list of lists (one per pT bin)
   mass_limits: [1.75, 2.1]  # list or list of lists (one per pT bin)
   rebin: 4  # int or list of ints (one per pT bin)
@@ -42,7 +46,7 @@ fit_configs:
   fix_correlated_bkg_to_signal: true  # bool or list of bools (one per pT bin)
 
 outputs:
-  directory: "fit/outputs/test"
+  directory: "fit/outputs/test_pars"
   suffix: "_test"
   produce_sweights: true
 
