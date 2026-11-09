@@ -4,12 +4,15 @@ inputs:
         project/mc/projections_ds_prompt.root,
         project/mc/projections_dplus_prompt.root
       ]
-  mc_corr_bkg: project/mc/projections_dplus_bkg.root
+  mc_corr_bkg_norm: project/mc/projections_dplus_bkg.root
+  mc_corr_bkg_shape: templates/templates.root
+  mc_dplus_norm: [  # D+ signal MC summed for the corr. bkg normalisation
+        project/mc/projections_dplus_prompt.root,
+        project/mc/projections_dplus_nonprompt.root
+      ]
 cutset_file_name: 'configs/cutset.yml'
 
-zfit_n_cpus:
-  intra: 10
-  inter: 10
+n_jobs: 10
 
 fit_configs:
   shift_bkg_templ: -0.02        # numerical value or null
@@ -46,7 +49,7 @@ fit_configs:
   fix_correlated_bkg_to_signal: true  # bool or list of bools (one per pT bin)
 
 outputs:
-  directory: "fit/outputs/test_pars"
+  directory: "fit/outputs/test"
   suffix: "_test"
   produce_sweights: true
 
