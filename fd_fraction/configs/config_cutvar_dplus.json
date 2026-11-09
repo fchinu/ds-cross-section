@@ -135,7 +135,7 @@
         ]
     },
     "output": {
-        "directory": "fd_fraction/outputs/fraction_81_dplus",
+        "directory": "fd_fraction/outputs/fraction/dplus",
         "file": "cut_variation.root"
     }
 }

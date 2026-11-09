@@ -135,7 +135,7 @@
         ]
     },
     "output": {
-        "directory": "fd_fraction/outputs/fraction_81",
+        "directory": "fd_fraction/outputs/fraction/ds",
         "file": "cut_variation.root"
     }
 }
