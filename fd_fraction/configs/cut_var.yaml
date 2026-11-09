@@ -1,0 +1,30 @@
+inputs:
+  central_projections: [project/config_data.yml, project/config_mc.yml]
+  central_fit: fit/config_fit.yml
+  central_efficiency: efficiency/config.yml
+
+cuts:
+  variation:
+    name: score_non_prompt
+    axis: 5
+    min: 0.
+    max: 0.8
+    n_cuts: 81
+    direction: upper # upper: keep candidates above the threshold, lower: below
+    run_range: null # optional, run only the cut sets with first <= index < last
+  bkg: # If one need different cuts from the central one
+    name: score_bkg
+    axis: 3
+    min: 0.
+    max: [0.025, 0.025, 0.1, 0.1, 0.1, 0.1, 0.1, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.3, 0.3]
+
+fit:
+  fix_params_to_central_case: [alpha, n, sigma]
+
+n_jobs:
+  projections: 10
+  fit: 4
+  efficiency: 10
+
+output:
+  dir: fd_fraction/outputs
