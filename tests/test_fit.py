@@ -1,6 +1,7 @@
 """
 Tests of fit/fit.py, on fake mass spectra with a Ds and a D+ signal peak
 """
+import importlib
 import importlib.util
 
 import numpy as np
@@ -104,7 +105,8 @@ def make_config(tmp_path, files, **fit_configs):
     cfg = {
         "inputs": {"data": str(files["data"]),
                    "mc": [str(files["ds_prompt"]), str(files["dplus_prompt"])],
-                   "mc_corr_bkg": str(files["dplus_bkg"])},
+                   "mc_corr_bkg_norm": str(files["dplus_bkg"]),
+                   "mc_corr_bkg_shape": str(files["dplus_bkg"])},
         "cutset_file_name": str(cutset),
         "fit_configs": {
             "extended": False,
@@ -197,6 +199,29 @@ def test_fit_gaussian_signals(tmp_path):
         for i_bin, (label, count) in enumerate(COLLISION_COUNTS.items(), start=1):
             assert h_coll.GetXaxis().GetBinLabel(i_bin) == label
             assert h_coll.GetBinContent(i_bin) == count
+
+
+def test_fit_parallel_matches_sequential(tmp_path, monkeypatch):
+    """Fitting the pT bins in parallel worker processes gives the same outputs as fitting them sequentially"""
+    monkeypatch.syspath_prepend(str(REPO_DIR / "fit"))
+    fit_module = importlib.import_module("fit")
+    files = make_inputs(tmp_path, "gaussian")
+    out_files = {}
+    for n_jobs in (1, 2):
+        run_dir = tmp_path / f"jobs{n_jobs}"
+        run_dir.mkdir()
+        cfg_file, out_dir = make_config(run_dir, files)
+        cfg = yaml.safe_load(cfg_file.read_text())
+        cfg["n_jobs"] = n_jobs
+        cfg_file.write_text(yaml.dump(cfg))
+        fit_module.fit(str(cfg_file))
+        out_files[n_jobs] = out_dir / "fit_mass_test.root"
+
+    with uproot.open(out_files[1]) as seq, uproot.open(out_files[2]) as par:
+        assert sorted(seq.keys(cycle=False)) == sorted(par.keys(cycle=False))
+        for key in seq.keys(cycle=False):
+            assert np.allclose(seq[key].values(), par[key].values(), rtol=1e-6, equal_nan=True), key
+            assert np.allclose(seq[key].variances(), par[key].variances(), rtol=1e-6, equal_nan=True), key
 
 
 def test_fit_per_pt_settings(tmp_path):
