@@ -1,6 +1,9 @@
 inputs:
   raw_yields: fit/outputs/test/fit_mass_test.root
   efficiency: efficiency/outputs/test/efficiency.root
+  prompt_fraction:
+    ds: fd_fraction/outputs/fraction/ds/cut_variation.root
+    dplus: fd_fraction/outputs/fraction/dplus/cut_variation.root
 
 br:
   ds:
@@ -10,4 +13,4 @@ br:
     value: 0.00267 # https://pdglive.lbl.gov/BranchingRatio.action?desig=89&parCode=S031&home=MXXX035
     unc:  [0.00008, 0.00006] # https://pdglive.lbl.gov/BranchingRatio.action?desig=89&parCode=S031&home=MXXX035
 
-output_dir: cross_section/outputs/test
+output_dir: cross_section/outputs/prompt_corrected

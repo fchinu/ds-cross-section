@@ -20,10 +20,20 @@ def main(config):
         h_eff_ds_prompt = in_file.Get("h_efficiency_Ds_Prompt")
         h_eff_dp_prompt = in_file.Get("h_efficiency_Dplus_Prompt")
 
+    with ROOT.TFile.Open(cfg["inputs"]["prompt_fraction"]["ds"]) as in_file:
+        h_frac_ds = in_file.Get("hRawFracPrompt_")
+        h_frac_ds.SetName("h_frac_prompt_ds")
+
+    with ROOT.TFile.Open(cfg["inputs"]["prompt_fraction"]["dplus"]) as in_file:
+        h_frac_dp = in_file.Get("hRawFracPrompt_")
+        h_frac_dp.SetName("h_frac_prompt_dplus")
+
     h_cross_section_ds = h_ry_ds.Clone("h_cross_section_ds")
+    h_cross_section_ds.Multiply(h_frac_ds)
     h_cross_section_ds.Divide(h_eff_ds_prompt)
     h_cross_section_ds.Scale(1.0 / lumi / cfg["br"]["ds"]["value"] / 2.0, "width")
     h_cross_section_dp = h_ry_dp.Clone("h_cross_section_dplus")
+    h_cross_section_dp.Multiply(h_frac_dp)
     h_cross_section_dp.Divide(h_eff_dp_prompt)
     h_cross_section_dp.Scale(1.0 / lumi / cfg["br"]["dplus"]["value"] / 2.0, "width")
 
